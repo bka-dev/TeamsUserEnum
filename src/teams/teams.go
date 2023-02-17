@@ -58,8 +58,8 @@ func Enumuser(email string, bearer string, verbose bool) error {
 
 	if resp.StatusCode == 200 {
 		if reflect.ValueOf(jsonInterface).Len() > 0 {
-			presence, device := getPresence(usefulInformation[0].Mri, bearer, verbose)
-			color.Green("[+] " + email + " - " + usefulInformation[0].DisplayName + " - " + presence + " - " + device)
+			presence, device, outofoffice := getPresence(usefulInformation[0].Mri, bearer, verbose)
+			color.Green("[+] " + email + " - " + usefulInformation[0].DisplayName + " - " + presence + " - " + device + " - " + outofoffice)
 		} else {
 			fmt.Println("[-] " + email)
 		}
@@ -106,7 +106,7 @@ func Parsefile(filenPath string, bearer string, verbose bool) {
 }
 
 // getPresence request the Teams API to get additional details about the user with its mri
-func getPresence(mri string, bearer string, verbose bool) (string, string) {
+func getPresence(mri string, bearer string, verbose bool) (string, string, string) {
 
 	var json_data = []byte(`[{"mri":"` + mri + `"}]`)
 	req, err := http.NewRequest("POST", URL_PRESENCE_TEAMS, bytes.NewBuffer(json_data))
@@ -127,11 +127,24 @@ func getPresence(mri string, bearer string, verbose bool) (string, string) {
 		Presence struct {
 			Availability string `json:"availability"`
 			DeviceType   string `json:"deviceType"`
+                        CalendarData struct {
+                                IsOutOfOffice bool `json:"isOutOfOffice"`
+                                OutOfOfficeNote struct {
+                                        Message string `json:"message"`
+                                        PublishTime string `json:"publishTime"`
+                                        Expiry string `json:"expiry"`
+                                }
+                        } `json:"calendarData"`
 		} `json:"presence"`
 	}
 
 	json.Unmarshal([]byte(body), &status)
 
-	return status[0].Presence.Availability, status[0].Presence.DeviceType
+        if verbose {
+                bytes, _ := json.MarshalIndent(status, "", " ")
+                fmt.Println(string(bytes))
+        }
+
+	return status[0].Presence.Availability, status[0].Presence.DeviceType, status[0].Presence.CalendarData.OutOfOfficeNote.Message
 
 }
